@@ -1,4 +1,6 @@
 /*
+ *  Copyright (c) 2015 Mouse
+ *
  *  Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
  *
  *  @APPLE_LICENSE_HEADER_START@
@@ -433,7 +435,7 @@ void OpenSCToken::populate()
 
 	int r, i, j;
 	const char *id;
-	struct sc_pkcs15_object *objs[32];
+	struct sc_pkcs15_object *objs[256];
 
 	// Map from ID to certs.
 	typedef std::map<sc_pkcs15_id_t *, RefPointer<Tokend::Record> > IdRecordMap;
@@ -445,8 +447,9 @@ void OpenSCToken::populate()
 	KeyCountMap mKeys;
 	
 	// Locate certificates
-	//FIXME - max objects constant ?
-	r = sc_pkcs15_get_objects(mScP15Card, SC_PKCS15_TYPE_CERT_X509, objs, 32);
+	//FIXME - max objects constant? We don't know, but hopefully 128 should be
+	// enough for some time...
+	r = sc_pkcs15_get_objects(mScP15Card, SC_PKCS15_TYPE_CERT_X509, objs, 128);
 	sc_debug(mScCtx, SC_LOG_DEBUG_NORMAL, "  sc_pkcs15_get_objects(TYPE_CERT_X509): %d\n", r);
 	if (r >= 0) {
 		for (i = 0; i < r; i++) {
@@ -462,9 +465,9 @@ void OpenSCToken::populate()
 		}
 	}
 
-	// Locate private keys
-	r = sc_pkcs15_get_objects(mScP15Card, SC_PKCS15_TYPE_PRKEY_RSA, objs, 32);
-	sc_debug(mScCtx, SC_LOG_DEBUG_NORMAL, "  sc_pkcs15_get_objects(TYPE_PRKEY_RSA): %d\n", r);
+	// Locate private keys. Up to 128 - an arbitrary number, but hopefully large enough.
+	r = sc_pkcs15_get_objects(mScP15Card, SC_PKCS15_TYPE_PRKEY, objs, 128);
+	sc_debug(mScCtx, SC_LOG_DEBUG_NORMAL, "  sc_pkcs15_get_objects(TYPE_PRKEY): %d\n", r);
 	if (r >= 0) {
 		
 		// Count the occurences of the private key ids
