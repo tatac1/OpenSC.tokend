@@ -1,5 +1,7 @@
 # OpenSC.tokend
 
+### This is a fork from OpenSC.tokend. The main difference between it and the original is that this fork not only builds on Mac OS X 10.10+, but also works with PIV cards.
+
 ### The open source OS X smart card driver
 
 A *tokend* makes the keys and certificates on your smart card appear in *Keychain Access.app* and available to applications like Safari or Chrome. OpenSC.tokend is the **open source** *tokend* implementation from OpenSC, with support for many different real world PKI smart cards found in the wild.
