@@ -1,6 +1,6 @@
 # OpenSC.tokend
 
-### This is a fork from OpenSC.tokend. The main difference between it and the original is that this fork not only builds on Mac OS X 10.10+, but also works with PIV cards.
+This is a fork from OpenSC.tokend. The main difference between it and the original is that this fork not only builds on Mac OS X 10.10+, but also works with PIV cards.
 
 ### The open source OS X smart card driver
 
