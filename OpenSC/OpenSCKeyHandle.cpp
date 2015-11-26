@@ -216,7 +216,9 @@ const CssmData &cipher, CssmData &clear)
 		CssmError::throwMe(CSSMERR_CSP_INVALID_CONTEXT);
 
 	// Add support for ECC-based decryption using ECDH
-	if ((context.algorithm() != CSSM_ALGID_RSA) && (context.algorithm() != CSSM_ALGID_ECDH))
+	// FIXME - should this be _ECDH or _EC?
+	if ((context.algorithm() != CSSM_ALGID_RSA) &&
+	    (context.algorithm() != CSSM_ALGID_ECDH))
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
 
 	// @@@ Switch to using tokend allocators
@@ -227,11 +229,12 @@ const CssmData &cipher, CssmData &clear)
 
 
 	// Add support for ECDH-secured key
-	int algorithm_type = SC_ALGORITHM_RSA_PAD_PKCS1;
+	unsigned int algorithm_type = SC_ALGORITHM_RSA_PAD_PKCS1;
 	if (context.algorithm() == CSSM_ALGID_ECDH) {
 	  // FIXME - first, unclear whether this is the right algorithm type
 	  // for ECDH-"wrapped" symmetric key. Second, unclear what other
 	  // support for EC decryption is missing in the code.
+	  // So, should this be _ECDH_CDH_RAW, or _EC?
 	  // In all likelihood, ECC S/MIME encryption still does not work.
 	  algorithm_type = SC_ALGORITHM_ECDH_CDH_RAW;
 	}
