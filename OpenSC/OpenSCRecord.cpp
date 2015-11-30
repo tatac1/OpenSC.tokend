@@ -97,12 +97,12 @@ void OpenSCCertificateRecord::getAcl(const char *tag, uint32 &count, AclEntryInf
 
 size_t OpenSCKeyRecord::sizeInBits() const
 {
-    sc_pkcs15_prkey_info *prkey = (sc_pkcs15_prkey_info *)mPrKeyObj->data;
-    if (mPrKeyObj->type == SC_PKCS15_TYPE_PRKEY_EC)
-        return prkey->field_length; /* EC in bits */
-    else
-        return prkey->modulus_length; /* RSA modulus length in bits */
-    // FIXME - need to address DSA keys too
+	sc_pkcs15_prkey_info *prkey = (sc_pkcs15_prkey_info *)mPrKeyObj->data;
+	if (mPrKeyObj->type == SC_PKCS15_TYPE_PRKEY_EC)
+		return prkey->field_length; /* EC field length in bits */
+	else
+		return prkey->modulus_length; /* RSA modulus length in bits */
+	// FIXME - need to address DSA keys too
 }
 
 /************************** OpenSCKeyRecord *****************************/
