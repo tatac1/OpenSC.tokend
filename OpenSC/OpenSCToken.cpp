@@ -447,8 +447,6 @@ void OpenSCToken::populate()
 	KeyCountMap mKeys;
 	
 	// Locate certificates
-	//FIXME - max objects constant? We don't know, but hopefully 128 should be
-	// enough for some time...
 	r = sc_pkcs15_get_objects(mScP15Card, SC_PKCS15_TYPE_CERT_X509, objs, 32);
 	sc_debug(mScCtx, SC_LOG_DEBUG_NORMAL, "  sc_pkcs15_get_objects(TYPE_CERT_X509): %d\n", r);
 	if (r >= 0) {
@@ -465,7 +463,7 @@ void OpenSCToken::populate()
 		}
 	}
 
-	// Locate private keys. Up to 128 - an arbitrary number, but hopefully large enough.
+	// Locate private keys.
 	r = sc_pkcs15_get_objects(mScP15Card, SC_PKCS15_TYPE_PRKEY, objs, 32);
 	sc_debug(mScCtx, SC_LOG_DEBUG_NORMAL, "  sc_pkcs15_get_objects(TYPE_PRKEY): %d\n", r);
 	if (r >= 0) {
