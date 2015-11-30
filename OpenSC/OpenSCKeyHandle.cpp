@@ -35,6 +35,8 @@
 #include <Security/cssmapple.h>
 
 #include "libopensc/log.h"
+#include "libopensc/asn1.h"
+
 /************************** OpenSCKeyHandle ************************/
 
 OpenSCKeyHandle::OpenSCKeyHandle(OpenSCToken &OpenSCToken,
@@ -70,107 +72,151 @@ uint32 inputSize, bool encrypting)
 
 
 void OpenSCKeyHandle::generateSignature(const Context &context,
-CSSM_ALGORITHMS signOnly, const CssmData &input, CssmData &signature)
+                                        CSSM_ALGORITHMS signOnly, const CssmData &input, CssmData &signature)
 {
-	// for sc_pkcs15_compute_signature()
-	unsigned int flags = 0;
-
-	sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "In OpenSCKeyHandle::generateSignature()\n");
-
-	if (context.type() == CSSM_ALGCLASS_SIGNATURE) {
-		sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  type == CSSM_ALGCLASS_SIGNATURE\n");
-	}
-	else {
-		sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Unknown type: 0x%0x, exiting\n", context.type());
-		CssmError::throwMe(CSSMERR_CSP_INVALID_CONTEXT);
-	}
-
-	// Add support for ECDSA signatures
-	if (context.algorithm() == CSSM_ALGID_RSA) {
-	  sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  algorithm == CSSM_ALGID_RSA\n");
-	} else if (context.algorithm() == CSSM_ALGID_ECDSA) {
-	  sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  algorithm == CSSM_ALGID_ECDSA\n");
-	} else {
-	  sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Unknown algorithm: 0x%0x, exiting\n", context.algorithm());
-	  CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
-	}
-
-	// Determine what hash function to use, and set it so
-	if (signOnly == CSSM_ALGID_SHA1) {
-	  if (input.Length != 20)
-	    CssmError::throwMe(CSSMERR_CSP_BLOCK_SIZE_MISMATCH);
-	  flags |= SC_ALGORITHM_RSA_HASH_SHA1;
-	  sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Using SHA1, length is 20 bytes\n");
-	  
-	}
-	else if (signOnly == CSSM_ALGID_MD5) {
-	  if (input.Length != 16)
-            CssmError::throwMe(CSSMERR_CSP_BLOCK_SIZE_MISMATCH);
-	  flags |= SC_ALGORITHM_RSA_HASH_MD5;
-	  sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Using MD5, length is 16 bytes\n");
-	  
-	} else if (signOnly == CSSM_ALGID_SHA256) {
-	  if (input.Length != 32)
-	    CssmError::throwMe(CSSMERR_CSP_BLOCK_SIZE_MISMATCH);
-	  flags |= SC_ALGORITHM_RSA_HASH_SHA256;
-	  sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Using SHA256, length is 32 bytes\n");
-	  
-	} else if (signOnly == CSSM_ALGID_SHA384) {
-	  if (input.Length != 48)
-	    CssmError::throwMe(CSSMERR_CSP_BLOCK_SIZE_MISMATCH);
-	  flags |= SC_ALGORITHM_RSA_HASH_SHA384;
-	  sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Using SHA384, length is 48 bytes\n");
-	  
-	} else if (signOnly == CSSM_ALGID_SHA512) {
-	  if (input.Length != 64)
-	    CssmError::throwMe(CSSMERR_CSP_BLOCK_SIZE_MISMATCH);
-	  flags |= SC_ALGORITHM_RSA_HASH_SHA512;
-	  sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Using SHA512, length is 64 bytes\n");
-	  
-	} else if (signOnly == CSSM_ALGID_NONE) {
-	  sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  NO digest (perhaps for SSL authentication)\n");
-	  flags |= SC_ALGORITHM_RSA_HASH_NONE;
-	  
-	}
-	else {
-	  sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Unknown signOnly value: 0x%0x, exiting\n", signOnly);
-	  CssmError::throwMe(CSSMERR_CSP_INVALID_DIGEST_ALGORITHM);
-	}
+    // for sc_pkcs15_compute_signature()
+    unsigned int flags = 0;
     
-	// Get padding, but default to pkcs1 style padding
-	uint32 padding = CSSM_PADDING_PKCS1;
-	context.getInt(CSSM_ATTRIBUTE_PADDING, padding);
-
-	if (padding == CSSM_PADDING_PKCS1) {
-		sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  PKCS#1 padding\n");
-		flags |= SC_ALGORITHM_RSA_PAD_PKCS1;
-	}
-	else if (padding == CSSM_PADDING_NONE) {
-		sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  NO padding\n");
-	}
-	else {
-		sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Unknown padding 0x%0x, exiting\n", padding);
-		CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_PADDING);
-	}
-
-	size_t keyLength = (mKey.sizeInBits() + 7) / 8;
-	// @@@ Switch to using tokend allocators
-	unsigned char *outputData =
-		reinterpret_cast<unsigned char *>(malloc(keyLength));
-	if (outputData == NULL)
-		CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
-
-	sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Signing buffers: inlen=%d, outlen=%d\n",input.Length, keyLength);
-	// Call OpenSC to do the actual signing
-	int rv = sc_pkcs15_compute_signature(mToken.mScP15Card,
-		mKey.signKey(), flags, input.Data, input.Length, outputData, keyLength);
-	sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  sc_pkcs15_compute_signature(): rv = %d\n", rv);
-	if (rv < 0) {
-		free(outputData);
-		CssmError::throwMe(CSSMERR_CSP_FUNCTION_FAILED);
-	}
-	signature.Data = outputData;
-	signature.Length = rv;
+    sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "In OpenSCKeyHandle::generateSignature()\n");
+    
+    if (context.type() == CSSM_ALGCLASS_SIGNATURE) {
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  type == CSSM_ALGCLASS_SIGNATURE\n");
+    }
+    else {
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  ALGCLASS_SIGNATURE Unknown type: 0x%0x, exiting\n", context.type());
+        CssmError::throwMe(CSSMERR_CSP_INVALID_CONTEXT);
+    }
+    
+    if (context.algorithm() == CSSM_ALGID_RSA) {
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  algorithm == CSSM_ALGID_RSA\n");
+    } else if (context.algorithm() == CSSM_ALGID_ECDSA) {
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  algorithm == CSSM_ALGID_ECDSA\n");
+    } else {
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Unknown algorithm: 0x%0x, exiting\n", context.algorithm());
+        CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
+    }
+    
+    if (signOnly == CSSM_ALGID_SHA1) {
+        
+        if (input.Length != 20)
+            CssmError::throwMe(CSSMERR_CSP_BLOCK_SIZE_MISMATCH);
+        flags |= SC_ALGORITHM_RSA_HASH_SHA1;
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Using SHA1, length is 20 bytes\n");
+    }
+    else if (signOnly == CSSM_ALGID_MD5) {
+        if (input.Length != 16)
+            CssmError::throwMe(CSSMERR_CSP_BLOCK_SIZE_MISMATCH);
+        flags |= SC_ALGORITHM_RSA_HASH_MD5;
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Using MD5, length is 16 bytes\n");
+        
+    } else if (signOnly == CSSM_ALGID_SHA256) {
+        if (input.Length != 32)
+            CssmError::throwMe(CSSMERR_CSP_BLOCK_SIZE_MISMATCH);
+        flags |= SC_ALGORITHM_RSA_HASH_SHA256;
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Using SHA256, length is 32 bytes\n");
+        
+    } else if (signOnly == CSSM_ALGID_SHA384) {
+        if (input.Length != 48)
+            CssmError::throwMe(CSSMERR_CSP_BLOCK_SIZE_MISMATCH);
+        flags |= SC_ALGORITHM_RSA_HASH_SHA384;
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Using SHA384, length is 48 bytes\n");
+    } else if (signOnly == CSSM_ALGID_SHA512) {
+        if (input.Length != 64)
+            CssmError::throwMe(CSSMERR_CSP_BLOCK_SIZE_MISMATCH);
+        flags |= SC_ALGORITHM_RSA_HASH_SHA512;
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Using SHA512, length is 64 bytes\n");
+    }
+    else if (signOnly == CSSM_ALGID_NONE) {
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  NO digest (perhaps for SSL authentication)\n");
+        flags |= SC_ALGORITHM_RSA_HASH_NONE;
+    }
+    else {
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Unknown signOnly value: 0x%0x, exiting\n", signOnly);
+        CssmError::throwMe(CSSMERR_CSP_INVALID_DIGEST_ALGORITHM);
+    }
+    
+    // Consistency validation - necessary for MS Outlook 2011 that seems to ask
+    // for RSA signatures with EC keys.
+    if ((context.algorithm() == CSSM_ALGID_ECDSA &&
+         mKey.signKey()->type == SC_PKCS15_TYPE_PRKEY_RSA) ||
+        (context.algorithm() == CSSM_ALGID_RSA &&
+         mKey.signKey()->type == SC_PKCS15_TYPE_PRKEY_EC)
+        )
+    {
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL,
+                 "  Illegal combination of key type %s and requested algorithm %s\n",
+                 (const char *)(mKey.signKey()->type == SC_PKCS15_TYPE_PRKEY_RSA?
+                                "PRKEY_RSA" : "PRKEY_EC"),
+                 (const char *)(context.algorithm() == CSSM_ALGID_ECDSA? "EDCSA" : "RSA")
+                 );
+        CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
+    }
+    
+    // Get padding, but default to pkcs1 style padding
+    uint32 padding = CSSM_PADDING_NONE;
+    if (context.algorithm() == CSSM_ALGID_RSA) {
+        padding = CSSM_PADDING_PKCS1;
+        context.getInt(CSSM_ATTRIBUTE_PADDING, padding);
+    }
+    
+    if (padding == CSSM_PADDING_PKCS1) {
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  PKCS#1 padding\n");
+        //flags |= SC_ALGORITHM_RSA_PAD_PKCS1; // hopefully not needed now
+    }
+    else if (padding == CSSM_PADDING_NONE) {
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  NO padding\n");
+    }
+    else {
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  Unknown padding 0x%0x, exiting\n", padding);
+        CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_PADDING);
+    }
+    
+    // Modulus size in bits for RSA, or field len in bits for EC
+    size_t sig_len = (mKey.sizeInBits() + 7) / 8;
+    if (mKey.signKey()->type == SC_PKCS15_TYPE_PRKEY_EC)
+        sig_len *= 2; // doubling ECC field size for ECDSA
+    // @@@ Switch to using tokend allocators
+    unsigned char *outputData =
+    reinterpret_cast<unsigned char *>(malloc(sig_len));
+    if (outputData == NULL)
+        CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
+    
+    sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL,
+             "  Signing buffers: inlen=%d, outlen=%d\n",input.Length, sig_len);
+    // Call OpenSC to do the actual signing
+    int rv = sc_pkcs15_compute_signature(mToken.mScP15Card,
+                                         mKey.signKey(), flags, input.Data, input.Length, outputData, sig_len);
+    sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  sc_pkcs15_compute_signature(): rv = %d\n", rv);
+    if (rv < 0) {
+        free(outputData);
+        CssmError::throwMe(CSSMERR_CSP_FUNCTION_FAILED);
+    }
+    
+    if (mKey.signKey()->type == SC_PKCS15_TYPE_PRKEY_EC)
+    {
+        // Wrap the result of compute_signature() as ASN.1 SEQUENCE
+        unsigned char *seq;
+        size_t seqlen;
+        if (sc_asn1_sig_value_rs_to_sequence(mToken.mScCtx, outputData, sig_len, &seq, &seqlen))   {
+            sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL,
+                     "Failed to convert signature to ASN1 sequence format.\n");
+            CssmError::throwMe(CSSMERR_CSP_INVALID_OUTPUT_VECTOR);
+        }
+        signature.Data =
+        reinterpret_cast<unsigned char *>(malloc(seqlen));
+        if (signature.Data == NULL)
+            CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
+        signature.Length = seqlen;
+        memcpy(signature.Data, seq, seqlen);
+        free(outputData);
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL,
+                 "  Converted ECDSA signature to ASN.1 SEQUENCE: seqlen=%d\n",
+                 seqlen);
+    } else {
+        // For RSA just pass along the return of sc_pkcs15_compute_signature()
+        signature.Data = outputData;
+        signature.Length = rv;
+    }
 }
 
 
@@ -225,25 +271,36 @@ const CssmData &cipher, CssmData &clear)
 	if (outputData == NULL)
 		CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
 
-
-	// Add support for ECDH-secured key
-	int algorithm_type = SC_ALGORITHM_RSA_PAD_PKCS1;
+	
+    int algorithm_type = SC_ALGORITHM_RSA_PAD_PKCS1; // default
+    int rv = -1;
+    
+    // Add support for ECDH-secured key
 	if (context.algorithm() == CSSM_ALGID_ECDH) {
-	  // FIXME - first, unclear whether this is the right algorithm type
-	  // for ECDH-"wrapped" symmetric key. Second, unclear what other
-	  // support for EC decryption is missing in the code.
-	  // In all likelihood, ECC S/MIME encryption still does not work.
-	  algorithm_type = SC_ALGORITHM_ECDH_CDH_RAW;
+        // Since we don't have the code yet - throw "Not Implemented" error
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "ECDH decryption not implemented yet...\n");
+        CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
+        
+        // Implementation of ECDH key derivation protocol should go here
+        algorithm_type = SC_ALGORITHM_ECDH_CDH_RAW;
+        // Put call to sc_pkcs15_derive() here
+        // rv = sc_pkcs15_derive(); // but with what parameters?
+ 
 	}
-	// Call OpenSC to do the actual decryption
-	int rv = sc_pkcs15_decipher(mToken.mScP15Card,
-				    mKey.decryptKey(), algorithm_type,
-				    cipher.Data, cipher.Length, outputData, cipher.Length);
-	sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL, "  sc_pkcs15_decipher(): rv = %d\n", rv);
-	if (rv < 0) {
-	  free(outputData);
-	  CssmError::throwMe(CSSMERR_CSP_FUNCTION_FAILED);
-	}
+    else { // RSA processing chain
+        // Call OpenSC to do the actual decryption
+
+        rv = sc_pkcs15_decipher(mToken.mScP15Card,
+                                mKey.decryptKey(), algorithm_type,
+                                cipher.Data, cipher.Length,
+                                outputData, cipher.Length);
+        sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL,
+                "  sc_pkcs15_decipher(): rv = %d\n", rv);
+        if (rv < 0) {
+            free(outputData);
+            CssmError::throwMe(CSSMERR_CSP_FUNCTION_FAILED);
+        }
+    }
 	clear.Data = outputData;
 	clear.Length = rv;
 	
