@@ -176,8 +176,7 @@ void OpenSCKeyHandle::generateSignature(const Context &context,
     if (mKey.signKey()->type == SC_PKCS15_TYPE_PRKEY_EC)
         sig_len *= 2; // doubling ECC field size for ECDSA
     // @@@ Switch to using tokend allocators
-    unsigned char *outputData =
-    reinterpret_cast<unsigned char *>(malloc(sig_len));
+    unsigned char *outputData = reinterpret_cast<unsigned char *>(malloc(sig_len));
     if (outputData == NULL)
         CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
     
@@ -200,15 +199,16 @@ void OpenSCKeyHandle::generateSignature(const Context &context,
         if (sc_asn1_sig_value_rs_to_sequence(mToken.mScCtx, outputData, sig_len, &seq, &seqlen))   {
             sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL,
                      "Failed to convert signature to ASN1 sequence format.\n");
+            free(outputData);
             CssmError::throwMe(CSSMERR_CSP_INVALID_OUTPUT_VECTOR);
         }
-        signature.Data =
-        reinterpret_cast<unsigned char *>(malloc(seqlen));
+        free(outputData);
+        signature.Data = reinterpret_cast<unsigned char *>(malloc(seqlen));
         if (signature.Data == NULL)
             CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
         signature.Length = seqlen;
         memcpy(signature.Data, seq, seqlen);
-        free(outputData);
+        free(seq);
         sc_debug(mToken.mScCtx, SC_LOG_DEBUG_NORMAL,
                  "  Converted ECDSA signature to ASN.1 SEQUENCE: seqlen=%d\n",
                  seqlen);
