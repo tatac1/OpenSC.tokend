@@ -262,7 +262,9 @@ const CssmData &cipher, CssmData &clear)
 		CssmError::throwMe(CSSMERR_CSP_INVALID_CONTEXT);
 
 	// Add support for ECC-based decryption using ECDH
-	if ((context.algorithm() != CSSM_ALGID_RSA) && (context.algorithm() != CSSM_ALGID_ECDH))
+	// FIXME - should this be _ECDH or _EC?
+	if ((context.algorithm() != CSSM_ALGID_RSA) &&
+	    (context.algorithm() != CSSM_ALGID_ECDH))
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
 
 	// @@@ Switch to using tokend allocators
@@ -271,7 +273,6 @@ const CssmData &cipher, CssmData &clear)
 	if (outputData == NULL)
 		CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
 
-	
     int algorithm_type = SC_ALGORITHM_RSA_PAD_PKCS1; // default
     int rv = -1;
     
@@ -285,8 +286,7 @@ const CssmData &cipher, CssmData &clear)
         algorithm_type = SC_ALGORITHM_ECDH_CDH_RAW;
         // Put call to sc_pkcs15_derive() here
         // rv = sc_pkcs15_derive(); // but with what parameters?
- 
-	}
+ 	}
     else { // RSA processing chain
         // Call OpenSC to do the actual decryption
 
