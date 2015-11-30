@@ -152,8 +152,8 @@ void OpenSCKeyHandle::generateSignature(const Context &context,
         CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
     }
     
-    // Get padding, but default to pkcs1 style padding
     uint32 padding = CSSM_PADDING_NONE;
+    // Get padding, but default to pkcs1 style padding for RSA
     if (context.algorithm() == CSSM_ALGID_RSA) {
         padding = CSSM_PADDING_PKCS1;
         context.getInt(CSSM_ATTRIBUTE_PADDING, padding);
