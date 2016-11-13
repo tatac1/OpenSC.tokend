@@ -703,17 +703,19 @@
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
 				ENABLE_TESTABILITY = YES;
-				"HEADER_SEARCH_PATHS[arch=*]" = /opt/local/include;
-				"LIBRARY_SEARCH_PATHS[arch=*]" = /opt/local/lib;
+				"HEADER_SEARCH_PATHS[arch=*]" = (
+					/usr/local/include,
+					/usr/local/opt/openssl/include,
+				);
+				"LIBRARY_SEARCH_PATHS[arch=*]" = (
+					/usr/local/lib,
+					/usr/local/opt/openssl/lib,
+				);
 				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				ONLY_ACTIVE_ARCH = YES;
-				"OTHER_LDFLAGS[arch=*]" = (
-					"-L/opt/local/lib",
-					"-lssl",
-					"-lcrypto",
-				);
+				"OTHER_LDFLAGS[arch=*]" = "";
 				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = YES;
-				"USER_HEADER_SEARCH_PATHS[arch=*]" = /opt/local/include;
+				"USER_HEADER_SEARCH_PATHS[arch=*]" = "/usr/local/include /usr/local/opt/openssl/include";
 			};
 			name = Development;
 		};
@@ -723,16 +725,24 @@
 				CLANG_CXX_LIBRARY = "libstdc++";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-				"HEADER_SEARCH_PATHS[arch=*]" = /opt/local/include;
-				"LIBRARY_SEARCH_PATHS[arch=*]" = /opt/local/lib;
+				"HEADER_SEARCH_PATHS[arch=*]" = (
+					/usr/local/include,
+					/usr/local/opt/openssl/include,
+				);
+				"LIBRARY_SEARCH_PATHS[arch=*]" = (
+					/usr/local/lib,
+					/usr/local/opt/openssl/lib,
+				);
 				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				"OTHER_LDFLAGS[arch=*]" = (
-					"-L/opt/local/lib",
+					"-L/usr/local/lib",
+					"-I/usr/local/opt/openssl/include",
+					"-L/usr/local/opt/openssl/lib",
 					"-lssl",
 					"-lcrypto",
 				);
 				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = YES;
-				"USER_HEADER_SEARCH_PATHS[arch=*]" = /opt/local/include;
+				"USER_HEADER_SEARCH_PATHS[arch=*]" = "/usr/local/include /usr/local/opt/openssl/include";
 			};
 			name = Deployment;
 		};
